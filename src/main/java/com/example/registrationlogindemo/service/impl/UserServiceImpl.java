@@ -33,14 +33,17 @@ public class UserServiceImpl implements UserService {
         User user = new User();
         user.setName(userDto.getFirstName() + " " + userDto.getLastName());
         user.setEmail(userDto.getEmail());
-
-        //encrypt the password once we integrate spring security
-        //user.setPassword(userDto.getPassword());
         user.setPassword(passwordEncoder.encode(userDto.getPassword()));
-        Role role = roleRepository.findByName("ROLE_ADMIN");
-        if(role == null){
-            role = checkRoleExist();
+
+        // Crear o buscar el rol asignado desde el DTO
+        String roleName = "ROLE_" + userDto.getRole().toUpperCase();
+        Role role = roleRepository.findByName(roleName);
+        if (role == null) {
+            role = new Role();
+            role.setName(roleName);
+            role = roleRepository.save(role);
         }
+
         user.setRoles(Arrays.asList(role));
         userRepository.save(user);
     }
@@ -53,22 +56,24 @@ public class UserServiceImpl implements UserService {
     @Override
     public List<UserDto> findAllUsers() {
         List<User> users = userRepository.findAll();
-        return users.stream().map((user) -> convertEntityToDto(user))
+        return users.stream()
+                .map(this::convertEntityToDto)
                 .collect(Collectors.toList());
     }
 
-    private UserDto convertEntityToDto(User user){
+    private UserDto convertEntityToDto(User user) {
         UserDto userDto = new UserDto();
-        String[] name = user.getName().split(" ");
-        userDto.setFirstName(name[0]);
-        userDto.setLastName(name[1]);
+        String[] nameParts = user.getName().split(" ", 2);
+        userDto.setFirstName(nameParts[0]);
+        userDto.setLastName(nameParts.length > 1 ? nameParts[1] : "");
         userDto.setEmail(user.getEmail());
-        return userDto;
-    }
 
-    private Role checkRoleExist() {
-        Role role = new Role();
-        role.setName("ROLE_ADMIN");
-        return roleRepository.save(role);
+        // Convertir el rol para mostrarlo (si se quiere ver)
+        if (!user.getRoles().isEmpty()) {
+            String simpleRole = user.getRoles().get(0).getName().replace("ROLE_", "");
+            userDto.setRole(simpleRole);
+        }
+
+        return userDto;
     }
 }
